@@ -565,7 +565,7 @@ status "Installing dependencies..."
 
 # echo composer version for info purposes
 # tail to get rid of outdated version warnings (Composer sends those to STDOUT instead of STDERR)
-composer --no-plugins --version 2> /dev/null | tail -n 1 | indent
+composer --no-plugins --version | indent
 
 # throw a notice if people have added their vendor dir to Git; that's bad practice and makes everything slow and cluttered
 if [[ -f "$composer_vendordir/autoload.php" && -d "$composer_vendordir/composer" ]]; then
