@@ -14,9 +14,37 @@ ENV['RACK_ENV'] = 'test'
 module Hatchet
 	class App
 		attr_reader :name, :stack, :directory, :repo_name, :app_config
+		
+		def delete_pipeline(pipeline_id)
+			begin
+				api_rate_limit.call.pipeline.delete(pipeline_id)
+			rescue Excon::Errors::HTTPStatus => err
+				puts err.request
+				puts err.response
+				raise
+			end
+		end
+		
 	end
 	
 	class TestRun
+		def info
+			begin
+				# GET /test-runs/{test_run_id}
+				response = excon_request(
+					method:	 :get,
+					path:	 "/test-runs/#{@test_run_id}",
+					version: "3.ci",
+					expects: [201, 200]
+				)
+				@status = response["status"].to_sym
+			rescue Excon::Errors::HTTPStatus => err
+				puts err.request
+				puts err.response
+				raise
+			end
+		end
+		
 		# override the default handling to also include stack and env vars in app.json
 		def source_blob_url
 			@app.in_directory do
