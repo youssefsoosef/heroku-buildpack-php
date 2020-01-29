@@ -18,7 +18,7 @@ module Hatchet
 		def delete_pipeline(pipeline_id)
 			begin
 				api_rate_limit.call.pipeline.delete(pipeline_id)
-			rescue Excon::Errors::HTTPStatus => err
+			rescue Excon::Error::Forbidden => err
 				puts err.request
 				puts err.response
 				raise
@@ -38,7 +38,7 @@ module Hatchet
 					expects: [201, 200]
 				)
 				@status = response["status"].to_sym
-			rescue Excon::Errors::HTTPStatus => err
+			rescue Excon::Error::Forbidden => err
 				puts err.request
 				puts err.response
 				raise
