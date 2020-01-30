@@ -31,6 +31,12 @@ module Hatchet
 				@pipeline_id = result["id"]
 			end
 			
+			# when the CI run finishes, the associated ephemeral app created for the test run internally gets removed almost immediately
+			# the system then sees a pipeline with no apps, and deletes it, also almost immediately
+			# that would, with bad timing, mean our test run info poll in wait! would 403, and/or the delete_pipeline at the end
+			# that's why we create an app explictly (or maybe it already exists), and then associate it with with the pipeline
+			# the app will be auto cleaned up later
+			self.setup!
 			Hatchet::RETRIES.times.retry do
 				couple_pipeline(self, @pipeline_id)
 			end
