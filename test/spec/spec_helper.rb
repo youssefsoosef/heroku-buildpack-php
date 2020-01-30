@@ -53,7 +53,13 @@ module Hatchet
 		end
 		
 		def couple_pipeline(app, pipeline_id)
-			api_rate_limit.call.pipeline_coupling.create(app: app.name, pipeline: @pipeline_id, stage: "development")
+			begin
+				api_rate_limit.call.pipeline_coupling.create(app: app.name, pipeline: @pipeline_id, stage: "development")
+			rescue Excon::Error::NotFound => err
+				puts err.request
+				puts err.response
+				raise
+			end
 		end
 	end
 	
