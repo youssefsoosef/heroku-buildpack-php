@@ -15,110 +15,71 @@ module Hatchet
 	class App
 		attr_reader :name, :stack, :directory, :repo_name, :app_config
 		
-		def delete_pipeline(pipeline_id)
-			begin
-				api_rate_limit.call.pipeline.delete(pipeline_id)
-			rescue Excon::Error::Forbidden => err
-				puts err.request
-				puts err.response
-				raise
-			end
-		end
-		
-		def run_ci(timeout: 300, &block)
-			Hatchet::RETRIES.times.retry do
-				result       = create_pipeline
-				@pipeline_id = result["id"]
-			end
-			
-			# when the CI run finishes, the associated ephemeral app created for the test run internally gets removed almost immediately
-			# the system then sees a pipeline with no apps, and deletes it, also almost immediately
-			# that would, with bad timing, mean our test run info poll in wait! would 403, and/or the delete_pipeline at the end
-			# that's why we create an app explictly (or maybe it already exists), and then associate it with with the pipeline
-			# the app will be auto cleaned up later
-			self.setup!
-			Hatchet::RETRIES.times.retry do
-				couple_pipeline(self, @pipeline_id)
-			end
-			
-			test_run = TestRun.new(
-				token:          api_key,
-				buildpacks:     @buildpacks,
-				timeout:        timeout,
-				app:            self,
-				pipeline:       @pipeline_id,
-				api_rate_limit: api_rate_limit
-			)
+	    def run_ci(timeout: 300, &block)
+	      Hatchet::RETRIES.times.retry do
+	        result       = create_pipeline
+	        @pipeline_id = result["id"]
+	      end
 
-			Hatchet::RETRIES.times.retry do
-				test_run.create_test_run
-			end
-			test_run.wait!(&block)
-		ensure
-			delete_pipeline(@pipeline_id) if @pipeline_id
-		end
+	      # when the CI run finishes, the associated ephemeral app created for the test run internally gets removed almost immediately
+	      # the system then sees a pipeline with no apps, and deletes it, also almost immediately
+	      # that would, with bad timing, mean our test run info poll in wait! would 403, and/or the delete_pipeline at the end
+	      # that's why we create an app explictly (or maybe it already exists), and then associate it with with the pipeline
+	      # the app will be auto cleaned up later
+	      self.setup!
+	      Hatchet::RETRIES.times.retry do
+	        couple_pipeline(@name, @pipeline_id)
+	      end
+
+	      test_run = TestRun.new(
+	        token:          api_key,
+	        buildpacks:     @buildpacks,
+	        timeout:        timeout,
+	        app:            self,
+	        pipeline:       @pipeline_id,
+	        api_rate_limit: api_rate_limit
+	     )
+
+	      Hatchet::RETRIES.times.retry do
+	        test_run.create_test_run
+	      end
+	      test_run.wait!(&block)
+	    ensure
+	      delete_pipeline(@pipeline_id) if @pipeline_id
+	    end
 		
-		def couple_pipeline(app, pipeline_id)
-			begin
-				api_rate_limit.call.pipeline_coupling.create(app: app.name, pipeline: @pipeline_id, stage: "development")
-			rescue Excon::Error::NotFound => err
-				puts err.request
-				puts err.response
-				raise
-			end
-		end
+	    def couple_pipeline(app_name, pipeline_id)
+	      api_rate_limit.call.pipeline_coupling.create(app: app_name, pipeline: pipeline_id, stage: "development")
+	    end
 	end
 	
 	class TestRun
-		def info
-			begin
-				# GET /test-runs/{test_run_id}
-				response = excon_request(
-					method:	 :get,
-					path:	 "/test-runs/#{@test_run_id}",
-					version: "3.ci",
-					expects: [201, 200]
-				)
-				@status = response["status"].to_sym
-			rescue Excon::Error::Forbidden => err
-				puts err.request
-				puts err.response
-				raise
-			end
-		end
 		
 		# override the default handling to also include stack and env vars in app.json
-		def source_blob_url
-			@app.in_directory do
-				app_json = JSON.parse(File.read("app.json")) if File.exist?("app.json")
-				app_json ||= {}
-				app_json["environments"]                       ||= {}
-				app_json["environments"]["test"]               ||= {}
-				app_json["environments"]["test"]["buildpacks"] = @buildpacks.map {|b| { url: b } }
-				app_json["environments"]["test"]["env"]        ||= {}
-				
-				# begin override: set stack into app.json
-				app_json["stack"]                              ||= @app.stack if @app.stack && !@app.stack.empty?
-				# end override
-				
-				# begin override: copy in env too, so we get e.g. the correct HEROKU_PHP_PLATFORM_REPOSITORIES
-				app_json["environments"]["test"]["env"]        = @app.app_config.merge(app_json["environments"]["test"]["env"]) # so we get HEROKU_PHP_PLATFORM_REPOSITORIES in there
-				# end override
-				
-				File.open("app.json", "w") {|f| f.write(JSON.generate(app_json)) }
-				
-				`tar c . | gzip -9 > slug.tgz`
-				
-				source_put_url = @app.create_source
-				Hatchet::RETRIES.times.retry do
-					@api_rate_limit.call
-					Excon.put(source_put_url,
-						expects: [200],
-						body:    File.read('slug.tgz'))
-				end
-			end
-			return @app.source_get_url
-		end
+	    def source_blob_url
+	      @app.in_directory do
+	        app_json = JSON.parse(File.read("app.json")) if File.exist?("app.json")
+	        app_json ||= {}
+	        app_json["environments"]                       ||= {}
+	        app_json["environments"]["test"]               ||= {}
+	        app_json["environments"]["test"]["buildpacks"] = @buildpacks.map {|b| { url: b } }
+	        app_json["environments"]["test"]["env"]        ||= {}
+	        app_json["environments"]["test"]["env"]        = @app.app_config.merge(app_json["environments"]["test"]["env"]) # copy in explicitly set app config
+	        app_json["stack"]                              ||= @app.stack if @app.stack && !@app.stack.empty?
+	        File.open("app.json", "w") {|f| f.write(JSON.generate(app_json)) }
+
+	        `tar c . | gzip -9 > slug.tgz`
+
+	        source_put_url = @app.create_source
+	        Hatchet::RETRIES.times.retry do
+	          @api_rate_limit.call
+	          Excon.put(source_put_url,
+	                    expects: [200],
+	                    body:    File.read('slug.tgz'))
+	        end
+	      end
+	      return @app.source_get_url
+	    end
 	end
 end
 
