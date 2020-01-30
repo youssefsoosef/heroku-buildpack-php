@@ -25,6 +25,36 @@ module Hatchet
 			end
 		end
 		
+		def run_ci(timeout: 300, &block)
+			Hatchet::RETRIES.times.retry do
+				result       = create_pipeline
+				@pipeline_id = result["id"]
+			end
+			
+			Hatchet::RETRIES.times.retry do
+				couple_pipeline(self, @pipeline_id)
+			end
+			
+			test_run = TestRun.new(
+				token:          api_key,
+				buildpacks:     @buildpacks,
+				timeout:        timeout,
+				app:            self,
+				pipeline:       @pipeline_id,
+				api_rate_limit: api_rate_limit
+			)
+
+			Hatchet::RETRIES.times.retry do
+				test_run.create_test_run
+			end
+			test_run.wait!(&block)
+		ensure
+			delete_pipeline(@pipeline_id) if @pipeline_id
+		end
+		
+		def couple_pipeline(app, pipeline_id)
+			api_rate_limit.call.pipeline_coupling.create(app: app.name, pipeline: @pipeline_id, stage: "development")
+		end
 	end
 	
 	class TestRun
