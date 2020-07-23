@@ -1,0 +1,49 @@
+<!-- BEGIN {{ type|upper }}_EXTENSIONS -->
+<!-- THIS SECTION, BEGINNING WITH THE MARKER COMMENT ABOVE, IS AUTOMATICALLY GENERATED; DO NOT EDIT BY HAND OR REMOVE MARKER -->
+{% set numCaveats = 0 %}
+<table>
+	<thead>
+		<tr>
+			<th rowspan="2">Extension</th>
+			<th colspan="{{ series|length }}">Available {{ type }} extensions by runtime series</th>
+		</tr>
+		<tr>
+{% for serie in series %}
+			<th{% if attribute(eol, serie) is defined %} style="{% if attribute(eol, serie) == "eol" %}background-color: rgba(194, 66, 0, 0.1); color: #C24200{% else %}background-color: #fff3c5; color: #927200{% endif %}"{% endif %}>PHP {{ serie }}</th>
+{% endfor %}
+		</tr>
+	</thead>
+	<tbody>
+{% for extension in extensions %}
+		<tr>
+			<td style="white-space: nowrap"><code>{% if extension.url %}<a href="{{ extension.url }}">{% endif %}{{ extension.name }}{% if extension.url %}</a>{% endif %}</code>{% if extension.major_version is defined %} ({{ extension.major_version }}x){% endif %}</td>
+	{% for serie, data in extension.data %}
+			<td {% if attribute(eol, serie) is defined %}style="{% if attribute(eol, serie) == "eol" %}background-color: rgba(194, 66, 0, 0.1); color: #C24200{% else %}background-color: #fff3c5; color: #927200{% endif %}"{% endif %}>
+		{% for version, caveats in data %}
+				{{ version|raw }}
+			{% for number, stack in caveats %}{% set numCaveats = numCaveats + 1 %}
+				<sup><a title="not available on the {{ stack == 14 ? "cedar" : "heroku" }}-{{ stack }} stack" href="#footnote-{{ type }}-ext-not-{{ stack }}">&#x200b;[&#x200b;{{ number }}&#x200b;]</a></sup>
+			{% endfor %}
+				<br/>
+		{% else %}
+				<small>&#x2718;</small>
+		{% endfor %}
+			</td>
+	{% endfor %}
+		</tr>
+{% endfor %}
+	</tbody>
+{% if numCaveats %}
+	<tfoot>
+		<tr>
+			<td colspan="{{ series|length + 1 }}">
+{% for index, stack in stacks %}
+				<small id="footnote-{{ type }}-ext-not-{{ stack }}">[{{ index }}]: This extension is not available on the <a href="/articles/stack"><code>{{ stack == 14 ? "cedar" : "heroku" }}-{{ stack }}</code> stack</a>.</small><br />
+{% endfor %}
+			</td>
+		</tr>
+	</tfoot>
+{% endif %}
+</table>
+<!-- THIS SECTION, ENDING WITH THE MARKER BELOW, IS AUTOMATICALLY GENERATED; DO NOT EDIT BY HAND OR REMOVE MARKER -->
+<!-- END {{ type|upper }}_EXTENSIONS -->

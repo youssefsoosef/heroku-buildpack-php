@@ -1,0 +1,27 @@
+<!-- BEGIN RUNTIMES -->
+<!-- THIS SECTION, BEGINNING WITH THE MARKER COMMENT ABOVE, IS AUTOMATICALLY GENERATED; DO NOT EDIT BY HAND OR REMOVE MARKER -->
+<table>
+	<thead>
+		<tr>
+			<th rowspan="2">Runtime&nbsp;/&nbsp;series</th>
+			<th colspan="{{ stacks|length }}">Available runtime versions by stack</th>
+		</tr>
+		<tr>
+{% for stack in stacks %}
+			<th><code>{{ stack == 14 ? "cedar" : "heroku" }}-{{ stack }}</code></th>
+{% endfor %}
+		</tr>
+	</thead>
+	<tbody>
+{% for runtime in runtimes %}
+		<tr {% if attribute(eol, runtime.series) is defined %}style="{% if attribute(eol, runtime.series) == "eol" %}background-color: rgba(194, 66, 0, 0.1); color: #C24200{% else %}background-color: #fff3c5; color: #927200{% endif %}"{% endif %}>
+			<td style="white-space:nowrap">PHP {{ runtime.series }}</td>
+	{% for stack in stacks %}
+			<td>{% if attribute(runtime, stack) %}{{ attribute(runtime, stack) }}{% else %}<small>&#x2718;</small>{% endif %}</td>
+	{% endfor %}
+		</tr>
+{% endfor %}
+	</tbody>
+</table>
+<!-- THIS SECTION, ENDING WITH THE MARKER BELOW, IS AUTOMATICALLY GENERATED; DO NOT EDIT BY HAND OR REMOVE MARKER -->
+<!-- END RUNTIMES -->
