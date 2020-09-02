@@ -8,7 +8,7 @@ describe "A PHP 7.4 application with a composer.json", :requires_php_on_stack =>
 			context "running the #{server} web server" do
 				let(:app) {
 					new_app_with_stack_and_platrepo('test/fixtures/sigterm',
-						before_deploy: -> { system("composer require --quiet --ignore-platform-reqs php '7.4.*'") or raise "Failed to require PHP version" }
+						before_deploy: -> { FileUtils.cp("#{__dir__}/../utils/wait-for-it.sh", FileUtils.pwd); system("composer require --quiet --ignore-platform-reqs php '7.4.*'") or raise "Failed to require PHP version" }
 					)
 				}
 				
