@@ -11,16 +11,17 @@ describe "A PHP application" do
   # end
   #
   it "checks for bad version" do
-    Hatchet::Runner.new("test/fixtures/default", allow_failure: true).tap do |app|
+    Hatchet::Runner.new("php-getting-started", allow_failure: true).tap do |app|
       app.before_deploy do
         File.open("composer.json", "w+") do |f|
-          f.write '{"require": {
+          f.write '{
+          "require": {
             "php": "7.badversion"
           }}'
         end
       end
       app.deploy do
-        expect(app.output).to include("Invalid semantic version \"7.badversion\"") #EDIT THIS MESSAGE
+        expect(app.output).to include("Could not parse version constraint 7.badversion")
       end
     end
   end
@@ -45,8 +46,7 @@ describe "A PHP application" do
 
   #Test upgrading stack invalidates the cache
   it "should not restore cached directories" do
-    app = Hatchet::Runner.new("test/fixtures/default", allow_failure: true, stack: "heroku-18").setup!
-    app.deploy do |app, heroku|
+    Hatchet::Runner.new("test/fixtures/default", allow_failure: true, stack: "heroku-18").deploy do |app, heroku|
       app.update_stack("heroku-16")
       run!('git commit --allow-empty -m "heroku-16 migrate"')
       app.push!
@@ -54,11 +54,9 @@ describe "A PHP application" do
     end
   end
 
-  #Test cache for regular deploys is used on repeated deploys
+  # Test cache for regular deploys is used on repeated deploys
   it "should not restore cache if the stack did not change" do
-    app = Hatchet::Runner.new('test/fixtures/default', stack: "heroku-16").setup!
-    app.before_deploy {}
-    app.deploy do |app, heroku|
+    Hatchet::Runner.new('test/fixtures/default', stack: "heroku-16").deploy do |app, heroku|
       app.update_stack("heroku-16")
       run!('git commit --allow-empty -m "cedar migrate"')
       app.push!
